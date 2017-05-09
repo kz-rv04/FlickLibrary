@@ -15,22 +15,25 @@ public enum FlickDirection
 }
 namespace InputUtil
 {
-
-    public class FlickUtil
+    public class FlickUtil :MonoBehaviour
     {
         [SerializeField]
-        private static FlickState state = FlickState.FREE;
+        private FlickState state = FlickState.FREE;
 
         // フリック判定のための座標
-        private static Vector3 beginPoint, endPoint;
+        private Vector2 beginPoint, endPoint;
         // フリック判定の距離
-        public static float flickDir = 0.0f;
+        [SerializeField,Range(10.0f,Mathf.Infinity)]
+        private float flickLength = 100.0f;
+        // 分割する象限の数
+        [SerializeField,Range(3,360)]
+        private int quadrant = 3;
+        [SerializeField, Range(0.0f, 360.0f)]
+        private float offsetAngle = 0.0f;
 
-        // フリックなどの入力系統の処理
-        #region
         // ボタン押下時の処理
         #region
-        public static void OnButtonDown()
+        public void OnButtonDown()
         {
             if (state == FlickState.FREE)
             {
@@ -39,7 +42,7 @@ namespace InputUtil
             }
         }
         // クリックしたオブジェクトをレイで取りたい場合
-        public static void OnButtonDown(ref GameObject select)
+        public void OnButtonDown(ref GameObject select)
         {
             if (state == FlickState.FREE)
             {
@@ -56,9 +59,10 @@ namespace InputUtil
             }
         }
         #endregion
+
+        // ボタン押下中の処理01
         #region
-        // ボタン押下中の処理
-        public static void OnFlicking()
+        public  void OnFlicking()
         {
             if (state == FlickState.FLICKING)
             {
@@ -66,63 +70,117 @@ namespace InputUtil
             }
         }
         #endregion
-        // ボタンを離した時にフリックした方向を返す
-        public static FlickDirection OnFlicked()
+
+        // ボタンを離した時にフリックした方向(象限)を返す
+        public int OnFlicked()
         {
+            // 終点の座標を取得
+            this.endPoint = Input.mousePosition;
+            int quadrant = 0;
+            // フリックの方向
+            Vector2 dir = this.endPoint - this.beginPoint;
+
+            // フリック入力の長さ
+            float flickLen = dir.sqrMagnitude;
+
+            dir = dir.normalized;
+
+            //Debug.Log("dir?" + dir);
 
             if (state == FlickState.FLICKING)
             {
                 state = FlickState.FREE;
             }
-            return GetDirection(beginPoint, endPoint);
+            
+            // FlickDirで指定した距離以下の入力はタップ判定とする
+            if (flickLen < Mathf.Pow(flickLength, 2))
+            {
+                // (quadrant = 0) == TAP
+                Debug.Log("tapped");
+                return quadrant;
+            }
+            quadrant = GetQuadrantNum(CalcAngle(dir));
+            return quadrant;
         }
-        // ボタンを離した時にフリックした方向を返す
-        public static FlickDirection OnFlicked(ref GameObject dest)
-        {
 
+        // ボタンを離した時にフリックした方向(象限)を返す
+        public int OnFlicked(ref GameObject dest)
+        {
+            int quadrant = 0;
+            Vector2 dir = this.endPoint - this.beginPoint;
             if (state == FlickState.FLICKING)
             {
                 state = FlickState.FREE;
             }
-            return GetDirection(beginPoint, endPoint);
+            // FlickDirで指定した距離以下の入力はタップ判定とする
+            if (dir.sqrMagnitude < Mathf.Pow(flickLength, 2))
+            {
+                // (quadrant = 0) == TAP
+                return quadrant;
+            }
+            quadrant = GetQuadrantNum(CalcAngle(dir));
+            return quadrant;
         }
-        // フリックの方向を取得する関数
-        private static FlickDirection GetDirection(Vector3 begin, Vector3 end)
-        {
-            float dirX, dirY;
-            dirX = end.x - begin.x;
-            dirY = end.y - begin.x;
-            // 横方向のフリックの場合
-            if (Mathf.Abs(dirX) > Mathf.Abs(dirY))
-            {
-                // 左方向への入力
-                if (dirX < 0)
-                {
-                    return FlickDirection.LEFT;
-                }
-                else
-                {
-                    return FlickDirection.RIGHT;
-                }
-            }
-            // 縦方向のフリックの場合
-            if (Mathf.Abs(dirX) < Mathf.Abs(dirY))
-            {
-                // 下方向への入力
-                if (dirY < 0)
-                {
-                    return FlickDirection.DOWN;
-                }
-                else
-                {
-                    return FlickDirection.UP;
-                }
 
-            }
-            else
+        // フリックの入力方向から角度を計算する
+        public float CalcAngle(Vector2 dir)
+        {
+            float angle = 0;
+            angle = Mathf.Rad2Deg * Mathf.Atan2(dir.y, dir.x);
+
+            // 角度はオイラー角として算出する
+            if (angle < 0.0f)
+                angle += 360.0f;
+
+            //Debug.Log("angle ?" + angle);
+            return angle;
+        }
+        // 角度から象限を取得する
+        public int GetQuadrantNum(float angle)
+        {
+            // 象限を分割する角度
+            float margin = 360.0f / this.Quadrant;
+            //Debug.Log("margin ? " + margin);
+            // 入力された角度がどの位置かを判別するための変数
+            float x = this.offsetAngle;
+
+            int i = 1;
+            for (i = 1; i < Quadrant; i++)
             {
-                return FlickDirection.TAP;
+                // angleが入っている象限の番号を返す
+                if (x <= angle && angle < x + margin)
+                {
+                    return i;
+                }
+                x += margin;
             }
+            return i;
+        }
+
+        // プロパティ
+        #region
+        public Vector2 GetBeginPoint
+        {
+            get { return this.beginPoint; }
+        }
+        public Vector2 GetEndPoint
+        {
+            get { return this.endPoint; }
+        }
+        public float FlickLength
+        {
+            get { return this.flickLength; }
+            set { this.flickLength = value; }
+        }
+        public int Quadrant
+        {
+            get { return this.quadrant; }
+            set { this.quadrant = value; }
+        }
+        public float OffsetAngle
+        {
+            get { return this.offsetAngle; }
+            set { this.offsetAngle = value; }
         }
         #endregion
     }
