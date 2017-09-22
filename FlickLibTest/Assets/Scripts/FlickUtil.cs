@@ -23,7 +23,7 @@ namespace InputUtil
         // フリック判定のための座標
         private Vector2 beginPoint, endPoint;
         // フリック判定の距離
-        [SerializeField,Range(10.0f,Mathf.Infinity)]
+        [SerializeField]
         private float flickLength = 100.0f;
         // 分割する象限の数
         [SerializeField,Range(3,360)]
